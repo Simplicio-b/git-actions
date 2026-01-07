@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-      - main
-      - feat/1123
     paths-ignore:
       - '**.md'
 
@@ -46,7 +44,7 @@ jobs:
         run: npm ci
 
       - name: Run test
-        run: npm run test      
+        run: npm run test:cov     
 
       - name: Configure Git
         run: |
@@ -134,34 +132,36 @@ jobs:
           # 5. Exporta para os próximos jobs
           echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
 
-  run-tests:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps: 
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # -- REDUNDANT DESNECESSARIO --
+  # run-tests:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     packages: write
+  #   steps: 
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
     
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20.x'
+  #         registry-url: 'https://registry.npmjs.org'
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: node_modules_cache
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node_modules-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-           ${{ runner.os }}-node_modules-
+  #     - name: Cache node_modules
+  #       uses: actions/cache@v4
+  #       id: node_modules_cache
+  #       with:
+  #         path: node_modules
+  #         key: ${{ runner.os }}-node_modules-${{ hashFiles('**/package-lock.json') }}
+  #         restore-keys: |
+  #          ${{ runner.os }}-node_modules-
       
-      - name: Install dependencies
-        if: steps.node_modules_cache.outputs.cache-hit != 'true'
-        run: npm ci
+  #     - name: Install dependencies
+  #       if: steps.node_modules_cache.outputs.cache-hit != 'true'
+  #       run: npm ci
 
-      - name: Run test
-        run: npm run test
+  #     - name: Run test
+  #       run: npm run test
+  #       run: npm run test:cov
 
