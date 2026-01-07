@@ -41,12 +41,12 @@ jobs:
         # '2>/dev/null' esconde mensagens de erro do git se for um repo novo
         # '||' define um valor padrão caso falhe
         run: |
-          echo "🔍 Buscando última tag existente no repositório..."
+          echo "Buscando última tag existente no repositório..."
 
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "Nenhuma tag encontrada (Primeira execução?)")
           
           echo "=============================================="
-          echo "🏷️  ÚLTIMA TAG ENCONTRADA: $LAST_TAG"
+          echo "  ÚLTIMA TAG ENCONTRADA: $LAST_TAG"
           echo "=============================================="
 
       - name: Generate Dev version & tag
@@ -81,12 +81,10 @@ jobs:
           NEW_TAG=$(node -e "
             const lastTag = '$LAST_TAG';
             // Remove o 'v' inicial
-
             const cleanVersion = lastTag.replace(/^v/, '');
             
             // Remove qualquer sufixo existente (-DEV, -alpha, etc) para pegar a base limpa
             // Ex: '1.2.3-DEV' vira '1.2.3'
-
             const baseVersion = cleanVersion.split('-')[0];
             
             let parts = baseVersion.split('.').map(Number);
