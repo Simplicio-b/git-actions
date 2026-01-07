@@ -3,6 +3,7 @@ name: Dev Release & Auto-Tag
 on:
   push:
     branches:
+      - master
       - main
       - feat/1122
     paths-ignore:
