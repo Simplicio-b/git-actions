@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - feat/NMD-41193
+      - feat/1122
     paths-ignore:
       - '**.md'
 
