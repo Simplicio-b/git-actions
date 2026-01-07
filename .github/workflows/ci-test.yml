@@ -1,0 +1,87 @@
+name: CI testing funcionalities
+
+on:
+  push:
+    branches:
+      - main
+      - feat/1122
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  create-dev-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      new_tag: ${{ steps.versioning.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      - name: Generate Dev version & tag
+        id: versioning
+
+        # Gera uma versão prerelease (ex: 1.2.3-DEV.0)
+        # O --no-git-tag-version evita que o npm crie a tag git automaticamente, queremos controlar isso
+        # Pega a versão atualizada do package.json
+        # Cria a tag no Git e sobe
+        # Exporta para os próximos jobs
+
+        run: |
+          npm version prerelease --preid=DEV --no-git-tag-version         
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+       
+          echo "Nova versão gerada: $TAG"
+       
+          git tag $TAG
+          git push origin $TAG
+       
+          echo "version=$TAG" >> $GITHUB_OUTPUT 
+
+  run-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps: 
+      - name: Checkout code
+        uses: actions/checkout@v4
+    
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: node_modules_cache
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+           ${{ runner.os }}-node_modules-
+      
+      - name: Install dependencies
+        if: steps.node_modules_cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Run test
+        run: npm run test
+
