@@ -1,0 +1,147 @@
+name: Dev Release & Auto-Tag
+
+on:
+  push:
+    branches:
+      - main
+      - feat/1122
+    paths-ignore:
+      - '**.md'
+
+jobs:
+ 
+  create-dev-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      new_tag: ${{ steps.versioning.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      # --- NOVO STEP: PRINT DA ÚLTIMA TAG ---
+      - name: Show Previous Tag
+        # Tenta pegar a última tag (suprimindo erros caso não exista nenhuma)
+        # '2>/dev/null' esconde mensagens de erro do git se for um repo novo
+        # '||' define um valor padrão caso falhe
+        run: |
+          echo "Buscando última tag existente no repositório..."
+
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "Nenhuma tag encontrada (Primeira execução?)")
+          
+          echo "=============================================="
+          echo "  ÚLTIMA TAG ENCONTRADA: $LAST_TAG"
+          echo "=============================================="
+
+      - name: Generate Dev version & tag
+        id: versioning
+
+        # Gera uma versão prerelease (ex: 1.2.3-DEV.0)
+        # O --no-git-tag-version evita que o npm crie a tag git automaticamente, queremos controlar isso
+        # Pega a versão atualizada do package.json
+        # Cria a tag no Git e sobe
+        # Exporta para os próximos jobs
+
+        # ======================================
+        # VERSSAO ANTERIOR
+        # npm version prerelease --preid=DEV --no-git-tag-version         
+        # VERSION=$(node -p "require('./package.json').version")
+        # TAG="v$VERSION"
+       
+        # echo "Nova versão gerada: $TAG"
+       
+        # git tag $TAG
+        # git push origin $TAG
+       
+        # echo "version=$TAG" >> $GITHUB_OUTPUT
+        run: |
+          # 1. Pega a última tag do Git (ex: v1.0.0 ou v1.0.3-DEV)
+          # Se não houver tags, assume v0.0.0 para começar
+
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Baseado na última tag: $LAST_TAG"
+
+          # 2. Script Node para calcular a próxima versão (PATCH + 1 e sufixo fixo -DEV)
+          NEW_TAG=$(node -e "
+            const lastTag = '$LAST_TAG';
+            // Remove o 'v' inicial
+            const cleanVersion = lastTag.replace(/^v/, '');
+            
+            // Remove qualquer sufixo existente (-DEV, -alpha, etc) para pegar a base limpa
+            // Ex: '1.2.3-DEV' vira '1.2.3'
+            const baseVersion = cleanVersion.split('-')[0];
+            
+            let parts = baseVersion.split('.').map(Number);
+            
+            // INCREMENTA O PATCH (O último número)
+            // Isso garante que cada commit tenha uma versão única: 1.2.3 -> 1.2.4
+            parts[2] += 1;
+            
+            // Reconstrói a string no formato desejado: vX.Y.Z-DEV
+            console.log('v' + parts.join('.') + '-DEV');
+          ")
+
+          echo "🚀 Nova Tag Calculada: $NEW_TAG"
+
+          # 3. Atualiza o package.json para refletir essa versão
+          # O NPM precisa da versão sem o 'v' (ex: 1.2.4-DEV)
+
+          NPM_VERSION=${NEW_TAG#v}
+
+          # Atualiza package.json sem criar tag git automática (faremos manualmente abaixo)
+          npm version $NPM_VERSION --no-git-tag-version --allow-same-version
+
+          # 4. Cria a Tag Git e envia
+          git tag $NEW_TAG
+          git push origin $NEW_TAG
+          
+          # 5. Exporta para os próximos jobs
+          echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
+
+  run-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps: 
+      - name: Checkout code
+        uses: actions/checkout@v4
+    
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: node_modules_cache
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+           ${{ runner.os }}-node_modules-
+      
+      - name: Install dependencies
+        if: steps.node_modules_cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Run test
+        run: npm run test
+

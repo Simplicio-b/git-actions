@@ -1,0 +1,43 @@
+name: Utility - Check Latest Tag
+
+# O gatilho 'workflow_dispatch' torna este workflow 100% manual via botão
+on: 
+  workflow_dispatch:
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout é OBRIGATÓRIO
+      # Sem baixar o código (fetch-depth: 0), o runner não "enxerga" as tags do Git.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      # 2. Busca e Imprime a Tag
+      - name: Print Latest Tag
+        run: |
+          echo "=========================================="
+          echo "🔍 Analisando repositório..."
+          echo "=========================================="
+          
+          # Comando git para buscar a última tag criada (em qualquer branch)
+          # 2>/dev/null: silencia erro se não houver tags
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "NENHUMA_TAG_ENCONTRADA")
+          
+          # Pega o hash do commit dessa tag (para saber se é velha ou nova)
+          if [ "$LAST_TAG" != "NENHUMA_TAG_ENCONTRADA" ]; then
+            TAG_COMMIT=$(git rev-list -n 1 $LAST_TAG)
+            TAG_DATE=$(git log -1 --format=%cd --date=format:'%d/%m/%Y %H:%M' $TAG_COMMIT)
+            
+            echo ""
+            echo "🏷️  ÚLTIMA TAG PUBLICADA:  $LAST_TAG"
+            echo "📅  DATA DE CRIAÇÃO:       $TAG_DATE"
+            echo "HASH:                  $TAG_COMMIT"
+            echo ""
+          else
+             echo "❌ Nenhuma tag encontrada neste repositório."
+          fi
+          
+          echo "=========================================="
