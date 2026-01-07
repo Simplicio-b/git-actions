@@ -71,6 +71,8 @@ jobs:
         # git push origin $TAG
        
         # echo "version=$TAG" >> $GITHUB_OUTPUT
+
+        # AJUSTAR A TAG PARA SER COMPATIVEL COM A VERSÃO DO PACKAGE.JSON
         run: |
           # 1. Pega a última tag do Git (ex: v1.0.0 ou v1.0.3-DEV)
           # Se não houver tags, assume v0.0.0 para começar
