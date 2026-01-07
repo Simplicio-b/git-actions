@@ -70,69 +70,47 @@ jobs:
       - name: Generate Dev version & tag
         id: versioning
 
-        # Gera uma versão prerelease (ex: 1.2.3-DEV.0)
-        # O --no-git-tag-version evita que o npm crie a tag git automaticamente, queremos controlar isso
-        # Pega a versão atualizada do package.json
-        # Cria a tag no Git e sobe
-        # Exporta para os próximos jobs
-
-        # ======================================
-        # VERSSAO ANTERIOR
-        # npm version prerelease --preid=DEV --no-git-tag-version         
-        # VERSION=$(node -p "require('./package.json').version")
-        # TAG="v$VERSION"
-       
-        # echo "Nova versão gerada: $TAG"
-       
-        # git tag $TAG
-        # git push origin $TAG
-       
-        # echo "version=$TAG" >> $GITHUB_OUTPUT
-
-        # AJUSTAR A TAG PARA SER COMPATIVEL COM A VERSÃO DO PACKAGE.JSON
         run: |
-          # 1. Pega a última tag do Git (ex: v1.0.0 ou v1.0.3-DEV)
-          # Se não houver tags, assume v0.0.0 para começar
-
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Baseado na última tag: $LAST_TAG"
-
-          # 2. Script Node para calcular a próxima versão (PATCH + 1 e sufixo fixo -DEV)
-          NEW_TAG=$(node -e "
-            const lastTag = '$LAST_TAG';
-            // Remove o 'v' inicial
-            const cleanVersion = lastTag.replace(/^v/, '');
-            
-            // Remove qualquer sufixo existente (-DEV, -alpha, etc) para pegar a base limpa
-            // Ex: '1.2.3-DEV' vira '1.2.3'
-            const baseVersion = cleanVersion.split('-')[0];
-            
-            let parts = baseVersion.split('.').map(Number);
-            
-            // INCREMENTA O PATCH (O último número)
-            // Isso garante que cada commit tenha uma versão única: 1.2.3 -> 1.2.4
-            parts[2] += 1;
-            
-            // Reconstrói a string no formato desejado: vX.Y.Z-DEV
-            console.log('v' + parts.join('.') + '-DEV');
-          ")
-
-          echo "🚀 Nova Tag Calculada: $NEW_TAG"
-
-          # 3. Atualiza o package.json para refletir essa versão
-          # O NPM precisa da versão sem o 'v' (ex: 1.2.4-DEV)
-
-          NPM_VERSION=${NEW_TAG#v}
-
-          # Atualiza package.json sem criar tag git automática (faremos manualmente abaixo)
-          npm version $NPM_VERSION --no-git-tag-version --allow-same-version
-
-          # 4. Cria a Tag Git e envia
-          git tag $NEW_TAG
-          git push origin $NEW_TAG
+          echo "=========================================="
+          echo "GERANDO TAG DE DEV"
+          echo "=========================================="
           
-          # 5. Exporta para os próximos jobs
-          echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
+          # 1. Pega a versão crua do arquivo
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "PACKAGE VERSION: $PKG_VERSION"
+          
+          # 2. Formata a Tag (Garante o padrão vX.Y.Z-DEV)
+          # Remove o sufixo -DEV caso o dev já tenha colocado no package.json, para evitar duplicação
+          BASE_VERSION=$(echo $PKG_VERSION | sed 's/-DEV//')
+          
+          # Adiciona o padrão v...-DEV
+          TARGET_TAG="v${BASE_VERSION}-DEV"
+          echo "Tag Alvo para criação: $TARGET_TAG"
+          
+          echo "------------------------------------------"
+          
+          # 3. VALIDAÇÃO DE EXISTÊNCIA (O ponto chave)
+          if git rev-parse "$TARGET_TAG" >/dev/null 2>&1; then
+            echo "ERRO CRÍTICO: A tag '$TARGET_TAG' JÁ EXISTE no repositório."
+            echo "MOTIVO: A versão no package.json ($PKG_VERSION) não foi alterada desde o último release."
+            echo "AÇÃO NECESSÁRIA: Atualize o package.json (ex: 1.0.1 -> 1.0.2) e faça um novo push."
+            exit 1 # Quebra o workflow aqui
+          else
+            echo "Criando tag '$TARGET_TAG' .... "
+          fi
+          
+          echo "------------------------------------------"
+          
+          # 4. Criação da Tag (Se chegou aqui, é seguro)
+          # O package.json não precisa ser alterado (npm version) pois já lemos dele
+          
+          git tag $TARGET_TAG
+          git push origin $TARGET_TAG
+          
+          echo "🎉 Tag $TARGET_TAG criada e enviada com sucesso!"
+          
+          # 5. Exporta para o próximo job
+          echo "version=$TARGET_TAG" >> $GITHUB_OUTPUT
 
        
        # 5. Build & Publicação (SDK e Types)
