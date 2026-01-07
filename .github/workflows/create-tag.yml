@@ -76,61 +76,18 @@ jobs:
 
         # ======================================
         # VERSSAO ANTERIOR
-        # npm version prerelease --preid=DEV --no-git-tag-version         
-        # VERSION=$(node -p "require('./package.json').version")
-        # TAG="v$VERSION"
-       
-        # echo "Nova versão gerada: $TAG"
-       
-        # git tag $TAG
-        # git push origin $TAG
-       
-        # echo "version=$TAG" >> $GITHUB_OUTPUT
-
         # AJUSTAR A TAG PARA SER COMPATIVEL COM A VERSÃO DO PACKAGE.JSON
         run: |
-          # 1. Pega a última tag do Git (ex: v1.0.0 ou v1.0.3-DEV)
-          # Se não houver tags, assume v0.0.0 para começar
-
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Baseado na última tag: $LAST_TAG"
-
-          # 2. Script Node para calcular a próxima versão (PATCH + 1 e sufixo fixo -DEV)
-          NEW_TAG=$(node -e "
-            const lastTag = '$LAST_TAG';
-            // Remove o 'v' inicial
-            const cleanVersion = lastTag.replace(/^v/, '');
-            
-            // Remove qualquer sufixo existente (-DEV, -alpha, etc) para pegar a base limpa
-            // Ex: '1.2.3-DEV' vira '1.2.3'
-            const baseVersion = cleanVersion.split('-')[0];
-            
-            let parts = baseVersion.split('.').map(Number);
-            
-            // INCREMENTA O PATCH (O último número)
-            // Isso garante que cada commit tenha uma versão única: 1.2.3 -> 1.2.4
-            parts[2] += 1;
-            
-            // Reconstrói a string no formato desejado: vX.Y.Z-DEV
-            console.log('v' + parts.join('.') + '-DEV');
-          ")
-
-          echo "🚀 Nova Tag Calculada: $NEW_TAG"
-
-          # 3. Atualiza o package.json para refletir essa versão
-          # O NPM precisa da versão sem o 'v' (ex: 1.2.4-DEV)
-
-          NPM_VERSION=${NEW_TAG#v}
-
-          # Atualiza package.json sem criar tag git automática (faremos manualmente abaixo)
-          npm version $NPM_VERSION --no-git-tag-version --allow-same-version
-
-          # 4. Cria a Tag Git e envia
-          git tag $NEW_TAG
-          git push origin $NEW_TAG
+          npm version prerelease --preid=DEV --no-git-tag-version         
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+           
+          echo "Nova versão gerada: $TAG"
+           
+          git tag $TAG
+          git push origin $TAG
           
-          # 5. Exporta para os próximos jobs
-          echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "version=$TAG" >> $GITHUB_OUTPUT
 
   # -- REDUNDANT DESNECESSARIO --
   # run-tests:
