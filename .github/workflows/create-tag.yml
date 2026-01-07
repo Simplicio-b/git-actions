@@ -1,4 +1,4 @@
-name: CI testing funcionalities
+name: Dev Release & Auto-Tag
 
 on:
   push:
