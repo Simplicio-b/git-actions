@@ -78,16 +78,46 @@ jobs:
         # VERSSAO ANTERIOR
         # AJUSTAR A TAG PARA SER COMPATIVEL COM A VERSÃO DO PACKAGE.JSON
         run: |
-          npm version prerelease --preid=DEV --no-git-tag-version         
-          VERSION=$(node -p "require('./package.json').version")
-          TAG="v$VERSION"
-           
-          echo "Nova versão gerada: $TAG"
-           
-          git tag $TAG
-          git push origin $TAG
+          echo "=========================================="
+          echo "GERANDO TAG DE DEV"
+          echo "=========================================="
           
-          echo "version=$TAG" >> $GITHUB_OUTPUT
+          # 1. Pega a versão crua do arquivo
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "PACKAGE VERSION: $PKG_VERSION"
+          
+          # 2. Formata a Tag (Garante o padrão vX.Y.Z-DEV)
+          # Remove o sufixo -DEV caso o dev já tenha colocado no package.json, para evitar duplicação
+          BASE_VERSION=$(echo $PKG_VERSION | sed 's/-DEV//')
+          
+          # Adiciona o padrão v...-DEV
+          TARGET_TAG="v${BASE_VERSION}-DEV"
+          echo "Tag Alvo para criação: $TARGET_TAG"
+          
+          echo "------------------------------------------"
+          
+          # 3. VALIDAÇÃO DE EXISTÊNCIA (O ponto chave)
+          if git rev-parse "$TARGET_TAG" >/dev/null 2>&1; then
+            echo "ERRO CRÍTICO: A tag '$TARGET_TAG' JÁ EXISTE no repositório."
+            echo "MOTIVO: A versão no package.json ($PKG_VERSION) não foi alterada desde o último release."
+            echo "AÇÃO NECESSÁRIA: Atualize o package.json (ex: 1.0.1 -> 1.0.2) e faça um novo push."
+            exit 1 # Quebra o workflow aqui
+          else
+            echo "Criando tag '$TARGET_TAG' .... "
+          fi
+          
+          echo "------------------------------------------"
+          
+          # 4. Criação da Tag (Se chegou aqui, é seguro)
+          # O package.json não precisa ser alterado (npm version) pois já lemos dele
+          
+          git tag $TARGET_TAG
+          git push origin $TARGET_TAG
+          
+          echo "🎉 Tag $TARGET_TAG criada e enviada com sucesso!"
+          
+          # 5. Exporta para o próximo job
+          echo "version=$TARGET_TAG" >> $GITHUB_OUTPUT
 
   # -- REDUNDANT DESNECESSARIO --
   # run-tests:
